@@ -22,11 +22,13 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.SystemClock;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.android.gms.gcm.GoogleCloudMessaging;
+
+import java.io.IOException;
 
 /**
  * This {@code IntentService} does the actual handling of the GCM message.
@@ -66,18 +68,10 @@ public class GcmIntentService extends IntentService {
                 // If it's a regular GCM message, do some work.
             } else if (GoogleCloudMessaging.MESSAGE_TYPE_MESSAGE.equals(messageType)) {
                 // This loop represents the service doing some work.
-                for (int i = 0; i < 5; i++) {
-                    Log.i(TAG, "Working... " + (i + 1)
-                            + "/5 @ " + SystemClock.elapsedRealtime());
-                    try {
-                        Thread.sleep(5000);
-                    } catch (InterruptedException e) {
-                    }
-                }
-                Log.i(TAG, "Completed work @ " + SystemClock.elapsedRealtime());
                 // Post notification of received message.
-                sendNotification("Received: " + extras.toString());
-                Log.i(TAG, "Received: " + extras.toString());
+                Log.d(TAG, "Received: " + extras.getString("message"));
+                sendNotification(extras.getString("message"));
+
             }
         }
         // Release the wake lock provided by the WakefulBroadcastReceiver.
@@ -91,6 +85,20 @@ public class GcmIntentService extends IntentService {
         mNotificationManager = (NotificationManager)
                 this.getSystemService(Context.NOTIFICATION_SERVICE);
 
+        MyWrapper myWrapper = null;
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            myWrapper = objectMapper.readValue(new String(msg), MyWrapper.class);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        Log.d(this.getClass().getName(), "Message: " + myWrapper.getData().getMsg());
+        Log.d(this.getClass().getName(), "Message: " + myWrapper.getRegistration_id());
+        Log.d(this.getClass().getName(), "Message: " + myWrapper.getData().getCt());
+        Log.d(this.getClass().getName(), "Message: " + myWrapper.getData().getV());
+
         PendingIntent contentIntent = PendingIntent.getActivity(this, 0,
                 new Intent(this, MainActivity.class), 0);
 
@@ -99,8 +107,8 @@ public class GcmIntentService extends IntentService {
                         .setSmallIcon(R.drawable.ic_stat_gcm)
                         .setContentTitle("GCM Notification")
                         .setStyle(new NotificationCompat.BigTextStyle()
-                                .bigText(msg))
-                        .setContentText(msg);
+                                .bigText(myWrapper.getData().getMsg()))
+                        .setContentText(myWrapper.getData().getMsg());
 
         mBuilder.setContentIntent(contentIntent);
         mNotificationManager.notify(NOTIFICATION_ID, mBuilder.build());
